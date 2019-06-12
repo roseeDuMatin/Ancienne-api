@@ -16,24 +16,6 @@ class PagesController extends Controller{
         $this->container = $container;
     }
 
-    public function home(RequestInterface $request, ResponseInterface $response){
-        // $response->getBody()->write('Salut les gens moi même !');
-        $flash = isset($_SESSION['flash']) ? $_SESSION['flash'] : [];
-        $_SESSION['flash'] = [];
-        $this->render($response, 'pages/home.twig', ['flash' => $flash]);
-    }
-
-    public function postHome(RequestInterface $request, ResponseInterface $response){
-        if(true)
-            $this->flash('Votre message a bien été envoyé');
-        else{
-            $this->flash('Certains champs n\'ont pas été remplic correctement', 'error');
-        }   
-        return $this->redirect($response, 'home');
-
-        
-    }
-
     public function create(RequestInterface $request, ResponseInterface $response, $args){
         header("Content-Type: application/json");
         $json = $request->getBody(); 
@@ -41,41 +23,24 @@ class PagesController extends Controller{
 
         $db = DatabaseManager::getManager();
 
-        $model = $this->getModel($args['table']);
-        if($model == NULL){
+        $sql = $db->getSQLCreate($args['table'], $data);
+        if($sql == 'error'){
             return $response->withStatus(400);
         }
-
-
-        $sql = 'INSERT INTO ' . $args['table'] . ' (';
-        $prepare = '(';
-
-        $length = count($model);
-
+        
         $values = [];
         array_push($values, NULL);
-        $data = array_values($data);
-        foreach($data as $value)
+        $array = array_values($data);
+        foreach($array as $value)
             array_push($values, $value);
-
-        for($i = 0; $i < $length; $i++){
-            $sql .= $model[$i];
-            $prepare .= '?';
-            if($i != $length - 1){
-                $sql .= ', ';
-                $prepare .= ', ';
-            }else{
-                $sql .= ')';   
-                $prepare .= ')'; 
-            }
-        }
-
-        $sql = $sql . ' VALUES ' . $prepare;
 
         $result = $db->exec($sql, $values);
         if($result > 0){
-            $values[0] = $db->LastInsertedId();
-            echo json_encode($values);
+            $array = array('ID' =>$db->LastInsertedId());
+            foreach($data as $key =>$value){
+                $array[$key] = $value;
+            }
+            echo json_encode($array);
             return $response->withStatus(201);
         }
         echo NULL;
@@ -89,33 +54,13 @@ class PagesController extends Controller{
 
         $db = DatabaseManager::getManager();
 
-        $model = $this->getModel($args['table']);
-        if($model == NULL){
+        $sqlRes = $db->getSQLUpdate($args['table'], $data);
+        if($sqlRes == 'error' || $sqlRes == NULL){
             return $response->withStatus(400);
         }
-
-        $sql = 'UPDATE '. $args['table'] . ' SET ';
-
-
-        $values = [];
-        $columns = [];
-        $array = array_values($data);
-
-        $length = count($model);
-        for($i = 0; $i < $length; $i++){
-            if($i != 0){
-                array_push($values, $array[$i]);
-                array_push($columns, $model[$i]);
-            }
-        }       
-        array_push($values, $array[0]);
-
-        for($i = 0; $i < $length - 1; $i += 1){
-            $sql .= $columns[$i] . ' = ?';
-            if($i != $length - 2) 
-                $sql .= ' ,';
-        }
-        $sql .= ' WHERE ID = ?';
+        
+        $sql = $sqlRes[0];
+        $values = $sqlRes[1];
 
         $result = $db->exec($sql, $values);
         if($result > 0){
@@ -127,8 +72,6 @@ class PagesController extends Controller{
 
     public function getById(RequestInterface $request, ResponseInterface $response, $args){
         header("Content-Type: application/json");
-        $json = $request->getBody(); 
-        $data = json_decode($json, true);
 
         $db = DatabaseManager::getManager();
         $sql = 'SELECT * FROM '. $args['table'].' WHERE ID = ?';
@@ -142,17 +85,52 @@ class PagesController extends Controller{
         return $response->withStatus(400);
     }
 
+    public function getByInt(RequestInterface $request, ResponseInterface $response, $args){
+        header("Content-Type: application/json");
+        if($args['column'] == 'ID' || $args['column'] == 'Id' || $args['column'] == 'id' || $args['column'] == 'iD'){
+            return $response->withStatus(400);
+        }
+
+        $db = DatabaseManager::getManager();
+        $sql = 'SELECT * FROM '. $args['table'].' WHERE ' . $args['column'] .' = ?';
+
+        $value = array(intval($args['value']));
+
+        $result = $db->getOne($sql, $value);
+        if($result > 0){
+            echo json_encode($result);
+            return $response->withStatus(201);
+        }
+        return $response->withStatus(400);
+    }
+
+    public function getByString(RequestInterface $request, ResponseInterface $response, $args){
+        header("Content-Type: application/json");
+
+        $db = DatabaseManager::getManager();
+        $sql = 'SELECT * FROM '. $args['table'].' WHERE ' . $args['column'] .' = ?';
+
+        var_dump($args['value']);
+
+        $value = array($args['value']);
+        $result = $db->getOne($sql, $value);
+        if($result > 0){
+            echo json_encode($result);
+            return $response->withStatus(201);
+        }
+        return $response->withStatus(400);
+    }
+
     public function getAll(RequestInterface $request, ResponseInterface $response, $args){
         header("Content-Type: application/json");
 
         $db = DatabaseManager::getManager();
 
-        $model = $this->getModel($args['table']);
-
-        if($model == NULL){
+        $sql = $db->getSQLAll($args['table']);
+        if($sql == 'error'){
             return $response->withStatus(400);
         }
-        $sql = 'SELECT * FROM '. $args['table'];
+
         $result = $db->getAll($sql);
         if($result > 0){
             echo json_encode($result);
@@ -169,7 +147,7 @@ class PagesController extends Controller{
 
         $db = DatabaseManager::getManager();
 
-        $model = $this->getModel($args['table']);
+        $model = $db->getModel($args['table']);
         if($model == NULL){
             return $response->withStatus(400);
         }
