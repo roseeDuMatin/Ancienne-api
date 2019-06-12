@@ -7,7 +7,7 @@ use Psr\Http\Message\ResponseInterface;
 use App\Utils\DatabaseManager;
 // require_once __DIR__ . '/../../utils/DatabaseManager.php';
 
-class PagesController extends Controller{
+class PagesController{
 
     protected $container;
 
