@@ -96,7 +96,7 @@ class PagesController{
 
         $value = array(intval($args['value']));
 
-        $result = $db->getOne($sql, $value);
+        $result = $db->getAll($sql, $value);
         if($result > 0){
             echo json_encode($result);
             return $response->withStatus(201);
@@ -113,7 +113,7 @@ class PagesController{
         var_dump($args['value']);
 
         $value = array($args['value']);
-        $result = $db->getOne($sql, $value);
+        $result = $db->getAll($sql, $value);
         if($result > 0){
             echo json_encode($result);
             return $response->withStatus(201);
